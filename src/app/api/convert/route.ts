@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter'
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting check
+    const clientIP = getClientIP(request);
+    const rateLimitResult = checkRateLimit(`convert:${clientIP}`, RATE_LIMITS.convert);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfterMs: rateLimitResult.retryAfterMs
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.retryAfterMs || 0) / 1000).toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          }
+        }
+      );
+    }
+
     // Check authentication
     const authHeader = request.headers.get('authorization')
     if (!authHeader) {
@@ -12,14 +35,14 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error } = await supabase.auth.getUser(token)
-    
+
     if (error || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
 
     const formData = await request.formData()
     const file = formData.get('file') as File
-    
+
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
@@ -31,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Read file buffer
     const buffer = await file.arrayBuffer()
-    
+
     // Parse Excel file
     let workbook: XLSX.WorkBook
     try {
@@ -47,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     const worksheet = workbook.Sheets[sheetName]
-    
+
     // Convert to JSON
     let jsonData: any[]
     try {
@@ -64,11 +87,11 @@ export async function POST(request: NextRequest) {
     const rowCount = jsonData.length
     const columnCount = Object.keys(jsonData[0] || {}).length
 
-    console.log('TMJ: DISINI')
+    logger.log('TMJ: DISINI')
 
     // Save to Supabase with user association
     try {
-      console.log('TMJ: Saving conversion record to Supabase for user:', user.id)
+      logger.log('TMJ: Saving conversion record to Supabase for user:', user.id)
       const { data, error } = await supabase
         .from('conversion_history')
         .insert({
@@ -84,19 +107,19 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (error) {
-        console.error('Supabase error:', error)
+        logger.error('Supabase error:', error)
         // Try to create user in auth.users if needed
         if (error.code === '23503') {
           // Foreign key violation - user not in auth.users
-          console.log('User not found in auth.users, skipping database save')
+          logger.log('User not found in auth.users, skipping database save')
         } else {
           throw error
         }
       } else {
-        console.log('✅ Successfully saved to conversion_history:', data)
+        logger.log('✅ Successfully saved to conversion_history:', data)
       }
     } catch (dbError) {
-      console.error('Failed to save to database:', dbError)
+      logger.error('Failed to save to database:', dbError)
       // Continue even if database save fails
     }
 
@@ -108,18 +131,18 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Conversion error:', error)
-    
+    logger.error('Conversion error:', error)
+
     // Try to save error to Supabase if we have file info
     try {
       const formData = await request.formData()
       const file = formData.get('file') as File
-      
+
       if (file) {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
         const { data: { user } } = await supabase.auth.getUser(token)
-        
+
         if (user) {
           await supabase
             .from('conversion_history')
@@ -137,11 +160,11 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (dbError) {
-      console.error('Failed to save error to database:', dbError)
+      logger.error('Failed to save error to database:', dbError)
     }
 
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'An unknown error occurred during conversion' 
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'An unknown error occurred during conversion'
     }, { status: 500 })
   }
 }

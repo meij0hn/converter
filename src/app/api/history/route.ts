@@ -1,9 +1,27 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Rate limiting check
+    const clientIP = getClientIP(request);
+    const rateLimitResult = checkRateLimit(`history:${clientIP}`, RATE_LIMITS.history);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.retryAfterMs || 0) / 1000).toString(),
+          }
+        }
+      );
+    }
+
     // Check authentication
     const headersList = await headers()
     const authHeader = headersList.get('authorization')
@@ -13,7 +31,7 @@ export async function GET() {
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error } = await supabase.auth.getUser(token)
-    
+
     if (error || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
@@ -26,7 +44,7 @@ export async function GET() {
       .limit(50)
 
     if (fetchError) {
-      console.error('Failed to fetch conversion history:', fetchError)
+      logger.error('Failed to fetch conversion history:', fetchError)
       return NextResponse.json({ error: 'Failed to fetch conversion history', details: fetchError }, { status: 500 })
     }
 
@@ -45,13 +63,29 @@ export async function GET() {
 
     return NextResponse.json(transformedData)
   } catch (error) {
-    console.error('Failed to fetch conversion history:', error)
+    logger.error('Failed to fetch conversion history:', error)
     return NextResponse.json({ error: 'Failed to fetch conversion history', details: error }, { status: 500 })
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    // Rate limiting check
+    const clientIP = getClientIP(request);
+    const rateLimitResult = checkRateLimit(`history:${clientIP}`, RATE_LIMITS.history);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.retryAfterMs || 0) / 1000).toString(),
+          }
+        }
+      );
+    }
+
     // Check authentication
     const headersList = await headers()
     const authHeader = headersList.get('authorization')
@@ -61,7 +95,7 @@ export async function DELETE() {
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error } = await supabase.auth.getUser(token)
-    
+
     if (error || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
@@ -72,13 +106,13 @@ export async function DELETE() {
       .eq('user_id', user.id)
 
     if (deleteError) {
-      console.error('Failed to clear conversion history:', deleteError)
+      logger.error('Failed to clear conversion history:', deleteError)
       return NextResponse.json({ error: 'Failed to clear conversion history' }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'History cleared successfully' })
   } catch (error) {
-    console.error('Failed to clear conversion history:', error)
+    logger.error('Failed to clear conversion history:', error)
     return NextResponse.json({ error: 'Failed to clear conversion history' }, { status: 500 })
   }
 }

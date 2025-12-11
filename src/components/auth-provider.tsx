@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TokenManager } from '@/lib/token-manager'
+import { logger } from '@/lib/logger'
 
 // Define User type inline to avoid import issues
 type User = {
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check token manager first (client-side)
         const userData = TokenManager.getUserData()
         if (userData) {
-          console.log('Loading user from token manager:', userData)
+          logger.log('Loading user from token manager:', userData)
           setUser(userData)
           setLoading(false)
           return
@@ -41,10 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Fallback to Supabase session
         const { data: { session } } = await supabase.auth.getSession()
-        console.log('Loading user from Supabase session:', session?.user)
+        logger.log('Loading user from Supabase session:', session?.user)
         setUser(session?.user ?? null)
       } catch (error) {
-        console.error('Error initializing auth:', error)
+        logger.error('Error initializing auth:', error)
         setUser(null)
       } finally {
         setLoading(false)
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', _event, session?.user)
+      logger.log('Auth state changed:', _event, session?.user)
       setUser(session?.user ?? null)
 
       // Update token manager on auth changes

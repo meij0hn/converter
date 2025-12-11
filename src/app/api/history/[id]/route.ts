@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +17,7 @@ export async function GET(
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error } = await supabase.auth.getUser(token)
-    
+
     if (error || !user) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 })
     }
@@ -29,7 +30,7 @@ export async function GET(
       .single()
 
     if (fetchError) {
-      console.error('Failed to fetch history item:', fetchError)
+      logger.error('Failed to fetch history item:', fetchError)
       return NextResponse.json({ error: 'Failed to fetch history item' }, { status: 500 })
     }
 
@@ -53,7 +54,7 @@ export async function GET(
 
     return NextResponse.json(transformedData)
   } catch (error) {
-    console.error('Failed to fetch history item:', error)
+    logger.error('Failed to fetch history item:', error)
     return NextResponse.json({ error: 'Failed to fetch history item' }, { status: 500 })
   }
 }

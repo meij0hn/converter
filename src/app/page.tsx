@@ -40,6 +40,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { TokenManager } from "@/lib/token-manager";
+import { logger } from "@/lib/logger";
 
 interface ConversionHistory {
   id: string;
@@ -89,13 +90,13 @@ export default function Home() {
   const getAuthHeaders = async () => {
     // Use TokenManager first (more reliable)
     const token = TokenManager.getAccessToken();
-    console.log('TokenManager.getAccessToken():', token ? 'found' : 'not found');
+    logger.log('TokenManager.getAccessToken():', token ? 'found' : 'not found');
 
     if (token) {
       const headers = {
         Authorization: `Bearer ${token}`,
       };
-      console.log('Using token from TokenManager:', headers);
+      logger.log('Using token from TokenManager:', headers);
       return headers;
     }
 
@@ -103,17 +104,17 @@ export default function Home() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    console.log('Supabase session:', session ? 'found' : 'not found');
+    logger.log('Supabase session:', session ? 'found' : 'not found');
 
     if (!session?.access_token) {
-      console.log('No token found in TokenManager or Supabase session');
+      logger.log('No token found in TokenManager or Supabase session');
       return {};
     }
 
     const headers = {
       Authorization: `Bearer ${session.access_token}`,
     };
-    console.log('Using token from Supabase session:', headers);
+    logger.log('Using token from Supabase session:', headers);
     return headers;
   };
 
@@ -164,7 +165,7 @@ export default function Home() {
         setConversionHistory(formattedHistory);
       }
     } catch (error) {
-      console.error("Failed to fetch conversion history:", error);
+      logger.error("Failed to fetch conversion history:", error);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -253,7 +254,7 @@ export default function Home() {
       const result = await response.json();
 
       if (response.ok) {
-        console.log("TMJ: Conversion result:", result);
+        logger.log("TMJ: Conversion result:", result);
         setConvertedJson(JSON.stringify(result.data, null, 2));
 
         // Refresh history after successful conversion
@@ -563,11 +564,10 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer ${
-                      dragActive
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer ${dragActive
                         ? "border-primary bg-primary/5 scale-[1.02]"
                         : "border-muted-foreground/25 hover:border-muted-foreground/50"
-                    }`}
+                      }`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
