@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       .from('conversion_history')
       .select('*')
       .eq('user_id', user.id)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .limit(50)
 

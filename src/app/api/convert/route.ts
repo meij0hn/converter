@@ -87,11 +87,8 @@ export async function POST(request: NextRequest) {
     const rowCount = jsonData.length
     const columnCount = Object.keys(jsonData[0] || {}).length
 
-    logger.log('TMJ: DISINI')
-
     // Save to Supabase with user association
     try {
-      logger.log('TMJ: Saving conversion record to Supabase for user:', user.id)
       const { data, error } = await supabase
         .from('conversion_history')
         .insert({

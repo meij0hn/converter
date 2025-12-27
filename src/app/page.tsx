@@ -254,7 +254,6 @@ export default function Home() {
       const result = await response.json();
 
       if (response.ok) {
-        logger.log("TMJ: Conversion result:", result);
         setConvertedJson(JSON.stringify(result.data, null, 2));
 
         // Refresh history after successful conversion
@@ -565,8 +564,8 @@ export default function Home() {
                 <CardContent className="space-y-4">
                   <div
                     className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer ${dragActive
-                        ? "border-primary bg-primary/5 scale-[1.02]"
-                        : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                      ? "border-primary bg-primary/5 scale-[1.02]"
+                      : "border-muted-foreground/25 hover:border-muted-foreground/50"
                       }`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}

@@ -25,32 +25,22 @@ export async function GET(request: NextRequest) {
 
         const { data, error } = await supabase
             .from('conversion_history')
-            .insert({
-                file_name: 'keep-alive',
-                file_size: 0,
-                row_count: 0,
-                column_count: 0,
-                status: 'success',
-                json_data: null,
-                user_id: null,
-                is_deleted: true
-            })
-            .select()
-            .single()
+            .delete()
+            .eq('is_deleted', true)
 
         if (error) {
             throw error
         }
 
         return NextResponse.json({
-            message: 'Keep-alive success',
+            message: 'Cleanup deleted records success',
             timestamp: new Date().toISOString(),
             data
         })
     } catch (error) {
-        logger.error('Keep-alive error:', error)
+        logger.error('Cleanup deleted records error:', error)
         return NextResponse.json(
-            { error: 'Keep-alive failed' },
+            { error: 'Cleanup deleted records failed' },
             { status: 500 }
         )
     }
